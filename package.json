@@ -1,0 +1,52 @@
+{
+  "name": "bee-ui-audio-vue",
+  "version": "0.1.0",
+  "description": "vue audio component.",
+  "author": "scolint",
+  "main": "lib/index.js",
+  "keywords": [
+    "vue",
+    "bee",
+    "bee-ui",
+    "bee-ui-vue",
+    "bee-ui-audio-vue",
+    "audio"
+  ],
+  "license": "ISC",
+  "gitHooks": {
+    "pre-commit": "npm run lint",
+    "commit-msg": "node scripts/verify-commit-msg.js"
+  },
+  "scripts": {
+    "dev": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint",
+    "test:unit": "vue-cli-service test:unit",
+    "publish": "node scripts/publish.js"
+  },
+  "dependencies": {
+    "markdown-it": "^8.4.2",
+    "markdown-it-container": "^2.0.0",
+    "core-js": "^2.6.5",
+    "vue": "^2.6.6",
+    "vue-router": "^3.0.1"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "^3.5.0",
+    "@vue/cli-plugin-eslint": "^3.5.0",
+    "@vue/cli-plugin-unit-mocha": "^3.5.0",
+    "@vue/cli-service": "^3.5.0",
+    "@vue/eslint-config-standard": "^4.0.0",
+    "@vue/test-utils": "1.0.0-beta.29",
+    "babel-eslint": "^10.0.1",
+    "chai": "^4.1.2",
+    "eslint": "^5.8.0",
+    "eslint-plugin-vue": "^5.0.0",
+    "less": "^3.0.4",
+    "less-loader": "^4.1.0",
+    "shelljs": "^0.8.3",
+    "vue-markdown-loader": "^2.4.1",
+    "vue-template-compiler": "^2.5.21",
+    "yorkie": "^2.0.0"
+  }
+}
