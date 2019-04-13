@@ -89,7 +89,7 @@ class Publish {
     this.package.version = this.version
     fs.writeFileSync(path.join(projectRoot, `lib/package.json`), JSON.stringify(this.package, null, 2))
     fs.copyFileSync(path.join(projectRoot, 'README.md'), path.join(projectRoot, 'lib/README.md'))
-    // shell.exec('npm publish lib')
+    shell.exec('npm publish lib')
   }
 
   /** 发布 */

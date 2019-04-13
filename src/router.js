@@ -7,8 +7,8 @@ export default new Router({
   routes: [
     {
       path: '/',
-      name: 'audio',
-      component: () => import(/* webpackChunkName: "audio" */ './docs/audio.md')
+      name: 'example',
+      component: () => import(/* webpackChunkName: "audio" */ './pages/example.vue')
     }
   ]
 })
