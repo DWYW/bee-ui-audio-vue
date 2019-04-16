@@ -211,6 +211,8 @@ export default {
           this.loop ? _audio.currentTime = Math.min(...this.repeat) : this.pause()
         }
       }
+
+      this.$emit('timeUpdate', e)
     },
 
     /** on ended event. */
