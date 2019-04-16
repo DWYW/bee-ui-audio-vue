@@ -46,7 +46,7 @@ class Publish {
         this.writePackage()
         this.rl.close()
       } else if (line.trim() === 'n') {
-        console.log('取消发布.')
+        console.warn('取消发布.')
         this.rl.close()
         process.exit(0)
       }
@@ -80,7 +80,7 @@ class Publish {
       delete this.package.gitHooks
       this.setVersion(version)
     } catch (error) {
-      console.log(error)
+      console.error(error)
     }
   }
 
