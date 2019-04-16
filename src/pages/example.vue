@@ -55,7 +55,7 @@ export default {
       isAutoPlay: false,
       isLoop: false,
       isRepeat: false,
-      repeatTimes: [10, 15],
+      repeatTimes: ['10.32', 15],
       isSetSpeed: false,
       speedsOptions: [0.5, 1, 1.5, 2],
       message: null

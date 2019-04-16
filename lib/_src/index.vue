@@ -64,13 +64,17 @@ export default {
     repeat: {
       type: Array,
       validator: function (value) {
-        return value.length === 2 && /^\d+-\d+$/.test(value.join('-'))
+        return value.length === 2 && value.reduce((errorCount, cur) => {
+          return /(^0(.\d+)?)|(^[1-9]\d*(.\d+)?)$/.test(cur) ? errorCount : errorCount + 1
+        }, 0) === 0
       }
     },
     speeds: {
       type: Array,
       validator: function (value) {
-        return /^[\d.]+$/.test(value.join(''))
+        return value.reduce((errorCount, cur) => {
+          return /(^0(.\d+)?)|(^[1-9]\d*(.\d+)?)$/.test(cur) ? errorCount : errorCount + 1
+        }, 0) === 0
       }
     }
   },
