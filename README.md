@@ -30,3 +30,4 @@ Vue.use(BeeAudio)
 |pause|暂停|
 |ended|结束|
 |message|信息|
+|timeUpdate|播放时间改变|
