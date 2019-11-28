@@ -5,7 +5,6 @@ module.exports = {
   devServer: {
     port: 6100
   },
-  outputDir: '../DWYW.github.io/bee-ui-audio',
   chainWebpack: config => {
     config.module
       .rule('md')
