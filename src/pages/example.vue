@@ -2,6 +2,23 @@
   <div class="example-pape">
     <div class="panel">
       <div class="text-center" >
+        <bee-audio :source='source'
+          :auto-play='isAutoPlay'
+          :loop='isLoop'
+          :repeat='repeat'
+          :speeds='speeds'
+          @message='onMessage'
+          :single-mode='true'
+        ></bee-audio>
+        <bee-audio :source='source'
+          :auto-play='isAutoPlay'
+          :loop='isLoop'
+          :repeat='repeat'
+          :speeds='speeds'
+          :single-mode='true'
+          @message='onMessage'
+        ></bee-audio>
+
         <bee-audio :source='source' v-if='isAutoPlay' key='autoPlay'
           :auto-play='isAutoPlay'
           :loop='isLoop'
@@ -35,7 +52,7 @@
 
         <div class="mgb-10px">
           <span>
-            设置播放速度:  <input type="checkbox" v-model="isSetSpeed"> {{speedsOptions.join(',')}}
+            设置播放速度:  <input type="checkbox" v-model="isSetSpeed"> {{JSON.stringify(speedsOptions)}}
           </span>
         </div>
 
@@ -51,13 +68,17 @@
 export default {
   data () {
     return {
-      source: `${process.env.BASE_URL}stronger.mp3`,
+      // source: `${process.env.BASE_URL}stronger.mp3`,
+      source: 'https://dwyw.github.io/bee-ui-audio/stronger.mp3',
       isAutoPlay: false,
       isLoop: false,
       isRepeat: false,
       repeatTimes: ['10.32', 15],
       isSetSpeed: false,
-      speedsOptions: [0.5, 1, 1.5, 2],
+      speedsOptions: [0.5, {
+        label: 'normal',
+        value: 1
+      }, 1.5, 2],
       message: null
     }
   },

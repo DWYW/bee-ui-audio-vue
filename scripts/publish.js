@@ -70,6 +70,7 @@ class Publish {
 
       this.package = Object.assign({}, temp, {
         main: 'index.js',
+        types: 'types/index.d.ts',
         scripts: {},
         dependencies: dependencies,
         devDependencies: {}

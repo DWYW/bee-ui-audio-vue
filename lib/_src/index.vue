@@ -1,58 +1,67 @@
 <template>
-  <div class="bee-audio-component" @mousemove='seeking' @mouseup="seeked" @mouseleave="seeked">
-    <div class="btns--wp">
-      <i class="audio--btn audio--btn__play" @click='play' v-if='status === "play"'></i>
-      <i class="audio--btn audio--btn__stop" @click='pause' v-else-if='status === "stop"'></i>
-      <i class="audio--btn audio--btn__loading" v-else></i>
+  <div class="bee-audio-component">
+    <section class="handle-buttons">
+      <i :class="buttonType" @click="toggle"></i>
+    </section>
+
+    <section class="durations" @click="barsOnClick" ref='duration'>
+      <div class="buffered" :style="{
+        width: percent.buffered
+      }"></div>
+
+      <div class="played" :style="{
+        width: percent.played
+      }"></div>
+
+      <span class="drag-button" :style="{
+        left: percent.played
+      }" @mousedown="onDragstart"></span>
+    </section>
+
+    <div class="remainder-duration">
+      {{durationStringify(duration.played)}}/{{durationStringify(duration.total)}}
     </div>
 
-    <div class="time--bars">
-      <div class="time--bar total--bar" :style='{
-        width: barsWidth.duration
-      }' ref='duration' @click='barOnClick'></div>
-      <div class="time--bar buffered--bar" :style='{
-        width: barsWidth.buffered
-      }' @click='barOnClick'></div>
-      <div class="time--bar played--bar" :style='{
-        width: barsWidth.current
-      }' @click='barOnClick'></div>
+    <div class="choose-speed" v-if="speeds" @click="chooseSpeed">{{speedLabel}}</div>
 
-      <div class="time--btn" :style='{
-        left: btnLeft
-      }' ref='timeBtn' @mousedown='seekStart'></div>
-    </div>
-
-    <div class="audio--duration">
-      {{(times.duration - times.current) | duration2str}}
-    </div>
-
-    <div class="audio--speed" v-if='speeds' @click="openSpeedsPanel">{{speed | speed2str}}</div>
-
-    <ul :class='["speed--select", {
-      "speed--select__visible": speedsVisible
-    }]' v-if='speeds'>
-      <li :class='["speed--item", {
-        "item__active": speed === item
-      }]' v-for='item in speeds' :key='item' @click='setPlayRate(item)'>{{item | speed2str}}</li>
+    <ul :class='["speeds", {
+      "speeds__actived": speedsVisible
+    }]' v-if="speeds">
+      <li v-for="(item, key) in speeds" :key="key"
+        :class="['speed-item', {
+          'item__actived': Number(speed) === Number(item.value || item)
+        }]"
+        :style="{
+          width: (100 / speeds.length) + '%'
+        }"
+      >
+        <span @click="speedSelected(item)">{{speedStringify(item)}}</span>
+      </li>
     </ul>
-
-    <audio controls='controls' ref='audio'
-      @waiting="onWaiting"
-      @loadstart="onLoadstart"
-      @loadeddata="onLoadeddata"
-      @playing="onPlaying"
-      @timeupdate="onTimeUpdate"
-      @ended="onEnded"
-      @error="onError"
-      @stalled='onStalled'
-      @durationchange='onDurationchange'
-    >
-      <source :src="source" type='audio/mpeg'>
-    </audio>
   </div>
 </template>
 
 <script>
+const STATUS_TYPE = {
+  WAITING: 0,
+  LOADING: 1,
+  LOADED: 2,
+  PLAYING: 3,
+  PAUSED: 4,
+  ENDED: 5,
+  ERROR: 9
+}
+
+const BUTTON_TYPE = {
+  [STATUS_TYPE.WAITING]: 'button__loading',
+  [STATUS_TYPE.LOADING]: 'button__loading',
+  [STATUS_TYPE.LOADED]: 'button__play',
+  [STATUS_TYPE.PLAYING]: 'button__pause',
+  [STATUS_TYPE.PAUSED]: 'button__play',
+  [STATUS_TYPE.ENDED]: 'button__play',
+  [STATUS_TYPE.ERROR]: 'button__error'
+}
+
 export default {
   name: 'BeeAudio',
   props: {
@@ -64,278 +73,254 @@ export default {
     repeat: {
       type: Array,
       validator: function (value) {
-        return value.length === 2 && value.reduce((errorCount, cur) => {
-          return /(^0(.\d+)?)|(^[1-9]\d*(.\d+)?)$/.test(cur) ? errorCount : errorCount + 1
+        return value.length === 2 && value.reduce((acc, cur) => {
+          return /(^0\.\d+$)|(^[1-9]\d*(\.\d+)?$)/.test(cur) ? acc : acc + 1
         }, 0) === 0
       }
     },
     speeds: {
       type: Array,
       validator: function (value) {
-        return value.reduce((errorCount, cur) => {
-          return /(^0(.\d+)?)|(^[1-9]\d*(.\d+)?)$/.test(cur) ? errorCount : errorCount + 1
+        return value.reduce((acc, cur) => {
+          return /(^0\.\d+$)|(^[1-9]\d*(\.\d+)?$)/.test(cur.value || cur) ? acc : acc + 1
         }, 0) === 0
       }
+    },
+    singleMode: Boolean
+  },
+  computed: {
+    buttonType () {
+      return BUTTON_TYPE[this.status]
+    },
+    percent () {
+      const { total, buffered, played } = this.duration
+
+      return {
+        buffered: total && buffered ? `${Math.min(buffered / total, 1) * 100}%` : '0%',
+        played: total && played ? `${Math.min(played / total, 1) * 100}%` : '0%'
+      }
+    },
+    speedLabel () {
+      const itemData = this.speeds.find((item) => Number(item.value || item) === Number(this.speed))
+      return itemData.label || this.speedStringify(itemData.value || itemData)
     }
   },
   data () {
     return {
-      audio: null,
-      status: 'play',
+      status: STATUS_TYPE.WAITING,
+      duration: {
+        total: null,
+        buffered: null,
+        played: null
+      },
       speedsVisible: false,
-      speed: 1,
-      times: {
-        duration: null,
-        current: null,
-        buffered: null
-      },
-      seek: {
-        switch: false,
-        stash: null
-      },
-      timeout: null
-    }
-  },
-  computed: {
-    /** the width of all bars. */
-    barsWidth () {
-      return {
-        duration: '100%',
-        buffered: this.times.buffered && this.times.duration ? `${Math.min(this.times.buffered / this.times.duration * 100, 100)}%` : '0%',
-        current: this.times.current && this.times.duration ? `${Math.min(this.times.current / this.times.duration * 100, 100)}%` : '0%'
+      speed: '1.0',
+      dragCache: {
+        pageX: null,
+        played: null
       }
-    },
-    /** the left distance of time btn. */
-    btnLeft () {
-      if (!this.times.current || !this.times.duration || !this.$refs.duration) return null
-
-      const width = this.$refs.duration.offsetWidth
-      const left = (this.times.current / this.times.duration * width) - (this.$refs.timeBtn.offsetWidth / 2)
-      return `${Math.floor(left)}px`
-    }
-  },
-  filters: {
-    duration2str (duration) {
-      if (duration === null || duration === undefined) {
-        return '--:--'
-      }
-
-      let seconds = Math.floor(duration % 60)
-      let minutes = Math.floor(duration / 60 % 60)
-
-      return `${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`
-    },
-
-    speed2str (speed) {
-      if (!speed || speed === 1) {
-        return '正常'
-      }
-
-      return `${speed}x`
     }
   },
   mounted () {
-    this.$nextTick(() => {
-      this.audio = this.$refs.audio
+    this._audio = window.$AUDIO_MANAGEMENT.create(this.source)
+    this._audio.mounted(this.$el)
+    this._audio.addEvents({
+      waiting: this.onWaiting,
+      loadstart: this.onLoadstart,
+      loadeddata: this.onLoadeddata,
+      timeupdate: this.onTimeUpdate,
+      durationchange: this.onDurationchange,
+      playing: this.onPlaying,
+      pause: this.onPause,
+      ended: this.onEnded,
+      stalled: this.onStalled,
+      error: this.onError
     })
   },
+  destroyed () {
+    window.$AUDIO_MANAGEMENT.destroyed(this._audio)
+  },
   methods: {
-    /** on waiting event. */
-    onWaiting (e) {
-      this.timeout = setTimeout(() => {
-        this.status = 'loading'
-      }, 10)
-    },
-
-    /** on loadstart event. */
-    onLoadstart (e) {
-      if (!this.source) {
-        this.message({
-          type: 'error',
-          step: 'loadstart',
-          text: '无法获取音频'
-        })
-
-        return null
+    toggle () {
+      const next = {
+        [STATUS_TYPE.LOADED]: this.play,
+        [STATUS_TYPE.PLAYING]: this.pause,
+        [STATUS_TYPE.PAUSED]: this.play,
+        [STATUS_TYPE.ENDED]: this.play
       }
 
-      this.status = 'loading'
+      next[this.status] && next[this.status]()
     },
 
-    /** on duration on changed event. */
-    onDurationchange (e) {
-      const _audio = e.target
-      this.$set(this.times, 'duration', _audio.duration)
+    play () {
+      if (this.repeat) {
+        this._audio.seek(Math.min(...this.repeat))
+      }
+
+      this.status = STATUS_TYPE.PLAYING
+      this._audio.play(this.singleMode)
+      this.$listeners.play && this.$listeners.play(this)
     },
 
-    /** on loaded data event. */
+    pause () {
+      this.status = STATUS_TYPE.PAUSED
+      this._audio.pause()
+      this.$listeners.pause && this.$listeners.pause(this)
+    },
+
+    updateDurations (audio) {
+      this.duration.total = audio.duration
+
+      if (!this.dragCache.pageX) {
+        this.duration.played = audio.currentTime
+      }
+
+      if (audio.buffered) {
+        this.duration.buffered = audio.buffered.end(0)
+      }
+    },
+
+    onLoadstart () {
+      this.status = STATUS_TYPE.LOADING
+    },
+
     onLoadeddata (e) {
-      const _audio = e.target
-      this.status = 'play'
-      this.$set(this.times, 'duration', _audio.duration)
-
-      try {
-        this.$set(this.times, 'buffered', _audio.buffered.end(0))
-      } catch (error) {
-        console.warn(error)
-      }
-
+      this.status = STATUS_TYPE.LOADED
+      this.updateDurations(e.target)
       this.autoPlay && this.play()
     },
 
-    /** on playing event. */
-    onPlaying (e) {
-      if (this.timeout) {
-        clearTimeout(this.timeout)
-      }
-
-      if (this.status !== 'stop') {
-        this.status = 'stop'
-      }
+    onDurationchange (e) {
+      this.duration.total = e.target.duration
     },
 
-    /** on time update event. */
     onTimeUpdate (e) {
-      const _audio = e.target
-
-      // not set the current time when custom seeking.
-      if (!this.seek.switch) {
-        this.$set(this.times, 'current', _audio.currentTime)
-      }
-
-      this.$set(this.times, 'duration', _audio.duration)
-      this.$set(this.times, 'buffered', _audio.buffered.end(0))
+      const target = e.target
+      this.updateDurations(target)
 
       if (this.repeat) {
-        if (_audio.currentTime >= Math.max(...this.repeat)) {
-          this.loop ? _audio.currentTime = Math.min(...this.repeat) : this.pause()
+        const { played } = this.duration
+
+        if (played >= Math.max(...this.repeat)) {
+          this.loop ? this._audio.seek(Math.min(...this.repeat)) : this.pause()
         }
       }
 
-      this.$emit('timeUpdate', e)
+      this.$listeners.timeUpdate && this.$listeners.timeUpdate(this)
     },
 
-    /** on ended event. */
-    onEnded (e) {
-      this.status = 'play'
-      this.$emit('ended', this.audio)
+    onWaiting (e) {
+      // delay to set status resolve seeking.
+      this._statusSetTimeout = setTimeout(() => {
+        this.status = STATUS_TYPE.WAITING
+      }, 20)
+    },
 
-      if (this.loop) {
-        this.play()
+    onPlaying () {
+      this._statusSetTimeout && clearTimeout(this._statusSetTimeout)
+
+      if (this.status !== STATUS_TYPE.PLAYING) {
+        this.status = STATUS_TYPE.PLAYING
       }
     },
 
-    /** on error event. */
-    onError (e) {
-      this.message({
-        type: 'error',
-        step: 'error',
-        text: '音频播放发生了意外'
-      })
-      this.status = 'play'
-    },
-
-    /** on stalled event. */
-    onStalled (e) {
-      this.message({
-        type: 'error',
-        step: 'stalled',
-        text: '获取音频失败'
-      })
-      this.status = 'play'
-    },
-
-    /** play the audio. */
-    play () {
-      if (!this.source) {
-        this.message({
-          type: 'error',
-          step: 'play',
-          text: '无法获取音频资源'
-        })
-        return
+    onPause () {
+      if (this.status !== STATUS_TYPE.PAUSED) {
+        this.status = STATUS_TYPE.PAUSED
       }
-
-      if (this.repeat) {
-        this.audio.currentTime = Math.min(...this.repeat)
-      }
-
-      this.status = 'stop'
-      this.audio.play()
-      this.$emit('play', this.audio)
     },
 
-    /** pause the audio. */
-    pause () {
-      this.status = 'play'
-      this.audio.pause()
-      this.$emit('pause', this.audio)
+    onEnded () {
+      this.status = STATUS_TYPE.ENDED
+      this.$listeners.ended && this.$listeners.ended(this)
+      this.loop && this.play()
     },
 
-    /** show messages */
-    message (message) {
-      this.$emit('message', message)
+    onStalled () {
+      this.status = STATUS_TYPE.LOADING
+      this.emitMessage('Failed to fetch data on stalled.')
     },
 
-    /** open the panel of choose play rate. */
-    openSpeedsPanel () {
+    onError () {
+      this.status = STATUS_TYPE.ERROR
+      this.emitMessage('Error to fetch data.')
+    },
+
+    emitMessage (message) {
+      this.$listeners.message && this.$listeners.message(message)
+    },
+
+    chooseSpeed () {
       this.speedsVisible = true
     },
 
-    /** close the panel of choose play rate. */
-    closeSpeedsPanel () {
+    speedSelected (data) {
+      this.speed = data.value || data
       this.speedsVisible = false
     },
 
-    /** set a rate of paly the audio. */
-    setPlayRate (rate) {
-      this.speed = rate
-      this.closeSpeedsPanel()
-    },
+    durationStringify (value) {
+      const strings = ['--', '--']
 
-    /** star set current time. */
-    seekStart (e) {
-      this.$set(this.seek, 'switch', true)
-      this.$set(this.seek, 'stash', {
-        x: e.pageX,
-        currentTime: this.times.current >> 0
-      })
-    },
-
-    /** seeking current time. */
-    seeking (e) {
-      if (this.seek.switch) {
-        const seconds = (e.pageX - this.seek.stash.x) / this.$refs.duration.offsetWidth * this.times.duration
-
-        if (Math.round(seconds) + this.seek.stash.currentTime < 0) {
-          this.$set(this.times, 'current', 0)
-        } else if (Math.round(seconds) + this.seek.stash.currentTime > this.times.duration) {
-          this.$set(this.times, 'current', this.times.duration)
-        } else {
-          this.$set(this.times, 'current', Math.round(seconds + this.seek.stash.currentTime))
-        }
+      if (value >= 0) {
+        const seconds = Math.floor(value % 60)
+        const minutes = Math.floor(value / 60 % 60)
+        strings[0] = minutes < 10 ? '0' + minutes : minutes
+        strings[1] = seconds < 10 ? '0' + seconds : seconds
       }
+
+      return strings.join(':')
     },
 
-    /** seeked current time. */
-    seeked (e) {
-      if (this.seek.switch) {
-        this.audio.currentTime = this.times.current
-        this.$set(this.seek, 'switch', false)
-      }
+    speedStringify (data) {
+      return data.label || `x${data}`
     },
 
-    /** seek current time. */
-    barOnClick (e) {
+    barsOnClick (e) {
+      if (this.status === STATUS_TYPE.ERROR) return
+      if (!/durations|buffered|played/.test(e.target.className)) return
+
       const { left, width } = this.$refs.duration.getBoundingClientRect()
-      const time = (e.pageX - left) / width * this.times.duration
-      this.audio.currentTime = time
+      const currentTime = (e.pageX - left) / width * this.duration.total
+      this._audio.seek(currentTime)
+    },
+
+    onDragstart (e) {
+      if (this.status === STATUS_TYPE.ERROR) return
+
+      this.dragCache.pageX = e.pageX
+      this.dragCache.played = this.duration.played
+
+      window.addEventListener('mousemove', this.onDragmove, false)
+      window.addEventListener('mouseup', this.onDragend, false)
+    },
+
+    onDragmove (e) {
+      if (!this.dragCache.pageX) return
+
+      const { width } = this.$refs.duration.getBoundingClientRect()
+      const { pageX, played } = this.dragCache
+      const step = (e.pageX - pageX) / width * this.duration.total
+      const currentTime = Math.min(
+        Math.max(step + played, 0),
+        this.duration.total
+      )
+      this.duration.played = currentTime
+    },
+
+    onDragend (e) {
+      this._audio.seek(this.duration.played)
+
+      this.dragCache.pageX = null
+      this.dragCache.played = null
+      window.removeEventListener('mousemove', this.onDragmove, false)
+      window.removeEventListener('mouseup', this.onDragend, false)
     }
   },
   watch: {
-    speed: function (current, prev) {
-      if (current !== prev && this.audio) {
-        this.audio.playbackRate = current
+    speed: function (value, oldValue) {
+      if (value !== oldValue && this._audio) {
+        this._audio.playRate(value)
       }
     }
   }
@@ -343,174 +328,5 @@ export default {
 </script>
 
 <style lang="less">
-@import 'variables.less';
-
-.bee-audio-component {
-  border-radius: 4px;
-  padding: 6px 10px;
-  display: inline-block;
-  border: 1px solid @border-color;
-  background-color: #ffffff;
-  position: relative;
-  overflow: hidden;
-  user-select: none;
-  white-space: nowrap;
-
-  .btns--wp, .time--bars, .audio--duration, .audio--speed {
-    display: inline-block;
-    vertical-align: middle;
-  }
-
-  .time--bars, .audio--duration, .audio--speed {
-    margin-left: 15px;
-  }
-
-  .btns--wp {
-    border: 1px solid @primary-color;
-    text-align: center;
-    border-radius: 50%;
-    font-size: 16px;
-
-    .audio--btn {
-      display: block;
-      width: @button-size;
-      height: @button-size;
-      background-repeat: no-repeat;
-      background-position: center;
-      background-size: 14px;
-      cursor: pointer;
-
-      &.audio--btn__loading {
-        animation: audio-loading 1.5s ease infinite;
-        background-image: url(@loading);
-      }
-
-      &.audio--btn__play {
-        background-image: url(@play);
-      }
-
-      &.audio--btn__stop {
-        background-image: url(@stop);
-      }
-    }
-  }
-
-  .time--bars {
-    width: 200px;
-    height: @button-size;
-    position: relative;
-
-    .time--bar {
-      position: absolute;
-      left: 0;
-      top: 50%;
-      transform: translate3d(0, -50%, 0);
-      height: @bar-height;
-      border-radius: @bar-height / 2;
-      cursor: pointer;
-
-      &.total--bar {
-        background-color: @bar-bg-color;
-      }
-
-      &.buffered--bar {
-        background-color: @buffer-bar-bg-color;
-      }
-
-      &.played--bar {
-        background-color: @primary-color;
-      }
-    }
-
-    .time--btn {
-      width: @bar-height * 3;
-      height: @bar-height * 3;
-      background-color: @primary-color;
-      border-radius: 50%;
-      position: absolute;
-      top: 50%;
-      left: -@bar-height * 3 / 2;
-      transform: translate3d(0, -50%, 0);
-      cursor: pointer;
-    }
-  }
-
-  .audio--duration {
-    font-size: 14px;
-    color: @font-color-tint;
-  }
-
-  .speed--select {
-    width: 100%;
-    height: 0;
-    margin: 0;
-    padding: 0 10px;
-    border-radius: 4px;
-    box-sizing: border-box;
-    background-color: #ffffff;
-    text-align: center;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    overflow: hidden;
-    transition: height .2s linear, padding .2s linear;
-
-    &.speed--select__visible {
-      height: 100%;
-      padding: 6px 10px;
-    }
-
-    li {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: inline-block;
-      color: @font-color-tint;
-      font-size: 14px;
-      transition: color 0.2s;
-      cursor: pointer;
-
-      &:active {
-        color: @primary-color;
-      }
-
-      &.item__active {
-        color: @primary-color;
-      }
-    }
-  }
-
-  .audio--speed {
-    min-width: 35px;
-    margin-left: 5px;
-    height: @button-size;
-    line-height: @button-size;
-    font-size: 12px;
-    color: @font-color-tint;
-    background-image: url(@speed);
-    background-repeat: no-repeat;
-    background-position: left center;
-    background-size: 24px;
-    padding-left: 20px;
-    box-sizing: content-box;
-    text-align: left;
-  }
-
-  audio {
-    display: none;
-  }
-}
-
-@keyframes audio-loading {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
+  @import './index.less';
 </style>
