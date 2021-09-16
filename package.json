@@ -1,6 +1,6 @@
 {
   "name": "bee-ui-audio-vue",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "vue audio component.",
   "author": "scolint",
   "main": "lib/index.js",

@@ -267,6 +267,11 @@ export default {
         const minutes = Math.floor(value / 60 % 60)
         strings[0] = minutes < 10 ? '0' + minutes : minutes
         strings[1] = seconds < 10 ? '0' + seconds : seconds
+
+        const hours = Math.floor(value / 60 / 60)
+        if (hours) {
+          strings.unshift(hours)
+        }
       }
 
       return strings.join(':')
